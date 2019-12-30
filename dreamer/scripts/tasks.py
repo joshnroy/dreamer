@@ -302,6 +302,20 @@ for name, game in ATARI_TASKS.items():
     return Task(name, env_ctor, [])
   locals()[name] = tools.bind(task_fn, name, game)
 
+PROCGEN_TASKS = ['coinrun', 'starpilot', 'caveflyer', 'dodgeball', 'fruitbot',
+                 'chaser', 'miner', 'jumper', 'leaper', 'maze', 'bigfish',
+                 'heist', 'climber', 'plunder', 'ninja', 'bossfight']
+PROCGEN_TASKS = {'procgen_{}'.format(game.lower()): game for game in PROCGEN_TASKS}
+
+
+for name, game in PROCGEN_TASKS.items():
+  def task_fn(name, game, config, params, mode):
+    action_repeat = params.get('action_repeat', 1)
+    env_ctor = tools.bind(
+        _procgen_env, game, mode, config, params, action_repeat)
+    return Task(name, env_ctor, [])
+  locals()[name] = tools.bind(task_fn, name, game)
+
 
 def gym_cheetah(config, params):
   # Works with `isolate_envs: process`.
@@ -364,6 +378,19 @@ def _atari_env(game, mode, config, params, action_repeat):
   # Agent outputs correct actions but random collect does not.
   env = control.wrappers.OneHotAction(env, strict=False)
   train_max_length = params.get('atari_train_max_length', None)
+  if mode == 'train' and train_max_length:
+    env = control.wrappers.MaximumDuration(env, train_max_length)
+  return _common_env(env, config, params)
+
+
+def _procgen_env(game, mode, config, params, action_repeat):
+  assert mode in ('train', 'test')
+  size = params.get('render_size', 64)
+
+  env = control.wrappers.Procgen(name, mode=='test')
+
+  env = control.wrappers.OneHotAction(env, strict=False)
+  train_max_length = params.get('procgen_train_max_length', None)
   if mode == 'train' and train_max_length:
     env = control.wrappers.MaximumDuration(env, train_max_length)
   return _common_env(env, config, params)

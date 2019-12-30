@@ -527,6 +527,56 @@ class Atari(object):
     return {'image': image}
 
 
+class Procgen(object):
+
+  # LOCK = multiprocessing.Lock()
+  LOCK = threading.Lock()
+
+  def __init__(
+      self, name, test=False):
+    import gym
+    with self.LOCK:
+      if test:
+        self._env = gym.make('procgen:procgen-{}-v0'.format(name), num_levels=500)
+      else:
+        self._env = gym.make('procgen:procgen-{}-v0'.format(name), num_levels=0, start_level=1000)
+    self._action_repeat = action_repeat
+    self._size = size
+    shape = self._env.observation_space.shape
+    self._buffers = [np.empty(shape, dtype=np.uint8) for _ in range(2)]
+    self._random = np.random.RandomState(seed=None)
+
+  @property
+  def observation_space(self):
+    shape = self._size + (3,)
+    space = gym.spaces.Box(low=0, high=255, shape=shape, dtype=np.uint8)
+    return gym.spaces.Dict({'image': space})
+
+  @property
+  def action_space(self):
+    return self._env.action_space
+
+  def close(self):
+    return self._env.close()
+
+  def reset(self):
+    with self.LOCK:
+      obs = self._env.reset()
+    return obs
+
+  def step(self, action):
+    total_reward = 0.0
+    for step in range(self._action_repeat):
+      obs, reward, done, info = self._env.step(action)
+      total_reward += reward
+      if done:
+        break
+    return obs, total_reward, done, info
+
+  def render(self, mode):
+    return self._env.render(mode)
+
+
 class OneHotAction(object):
 
   def __init__(self, env, strict=True):
