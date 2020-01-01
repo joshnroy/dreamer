@@ -656,9 +656,9 @@ class MinimumDuration(object):
     self._duration = duration
     self._step = None
 
-    self.empty_observ = {'image': np.zeros(self._size + (3,))}
-    self.empty_reward = 0.
-    self.empty_done = False
+    self.empty_observ = {'image': np.zeros(self._size + (3,)).astype(np.uint8)}
+    self.empty_reward = np.float32(0.)
+    self.empty_done = np.bool_(False)
     self.empty_info = {}
 
     self.actually_done = False
@@ -669,6 +669,10 @@ class MinimumDuration(object):
   def step(self, action):
     if not self.actually_done:
       observ, reward, done, info = self._env.step(action)
+      # print("STEPPING", observ['image'].dtype, reward.dtype, done.dtype)
+      # print(observ['image'].shape, reward.shape, done.shape)
+      # print(type(observ['image']), type(reward), type(done), type(info))
+      # print(reward, done)
       self.actually_done = done
     self._step += 1
     if self.actually_done:
@@ -678,7 +682,11 @@ class MinimumDuration(object):
       if self._step < self._duration:
         done = self.empty_done
       else:
-        done = True
+        done = np.bool_(True)
+      # print("FAKE STEPPING", observ['image'].dtype, reward.dtype, done.dtype)
+      # print(observ['image'].shape, reward.shape, done.shape)
+      # print(type(observ['image']), type(reward), type(done), type(info))
+      # print(reward, done)
     return observ, reward, done, info
 
   def reset(self):
