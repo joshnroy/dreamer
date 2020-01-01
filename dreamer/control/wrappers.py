@@ -33,6 +33,8 @@ import tensorflow as tf
 
 from dreamer import tools
 
+import sys
+
 
 class ObservationDict(object):
 
@@ -489,7 +491,8 @@ class Atari(object):
     else:
       self._env.ale.getScreenRGB2(self._buffers[0])
     self._buffers[1].fill(0)
-    return self._get_obs()
+    obs = self._get_obs()
+    return obs
 
   def step(self, action):
     total_reward = 0.0
@@ -511,6 +514,7 @@ class Atari(object):
         else:
           self._env.ale.getScreenRGB2(self._buffers[index])
     obs = self._get_obs()
+    # print("ATARI", obs['image'].min(), obs['image'].max(), reward, done, info)
     return obs, total_reward, done, info
 
   def render(self, mode):
@@ -535,15 +539,18 @@ class Procgen(object):
   def __init__(
       self, name, test=False):
     import gym
+
+    self.name = name
+    self.test = test
+
     with self.LOCK:
-      if test:
-        self._env = gym.make('procgen:procgen-{}-v0'.format(name), num_levels=500)
+      if self.test:
+        self._env = gym.make('procgen:{}-v0'.format(self.name), num_levels=500)
       else:
-        self._env = gym.make('procgen:procgen-{}-v0'.format(name), num_levels=0, start_level=1000)
-    self._action_repeat = action_repeat
-    self._size = size
+        self._env = gym.make('procgen:{}-v0'.format(self.name), num_levels=0, start_level=1000)
+    self._action_repeat = 1
+    self._size = (64, 64)
     shape = self._env.observation_space.shape
-    self._buffers = [np.empty(shape, dtype=np.uint8) for _ in range(2)]
     self._random = np.random.RandomState(seed=None)
 
   @property
@@ -561,17 +568,28 @@ class Procgen(object):
 
   def reset(self):
     with self.LOCK:
+      if self.test:
+        self._env = gym.make('procgen:{}-v0'.format(self.name), num_levels=500)
+      else:
+        self._env = gym.make('procgen:{}-v0'.format(self.name), num_levels=0, start_level=1000)
       obs = self._env.reset()
+    # Use at least one no-op.
+    # noops = self._random.randint(1, self._noops) if self._noops > 1 else 1
+    # for _ in range(noops):
+    #   obs, reward, done, info = self._env.step(0)
+    #   if done:
+    #     with self.LOCK:
+    #       obs = self._env.reset()
+    obs = np.clip(obs, 0, 255).astype(np.uint8)
+    obs = {'image': obs}
     return obs
 
   def step(self, action):
-    total_reward = 0.0
-    for step in range(self._action_repeat):
-      obs, reward, done, info = self._env.step(action)
-      total_reward += reward
-      if done:
-        break
-    return obs, total_reward, done, info
+    obs, reward, done, info = self._env.step(action)
+    obs = np.clip(obs, 0, 255).astype(np.uint8)
+    obs = {'image': obs}
+    # print("PROCGEN", obs['image'].min(), obs['image'].max(), reward, done, info)
+    return obs, reward, done, info
 
   def render(self, mode):
     return self._env.render(mode)
@@ -638,18 +656,34 @@ class MinimumDuration(object):
     self._duration = duration
     self._step = None
 
+    self.empty_observ = {'image': np.zeros(self._size + (3,))}
+    self.empty_reward = 0.
+    self.empty_done = False
+    self.empty_info = {}
+
+    self.actually_done = False
+
   def __getattr__(self, name):
     return getattr(self._env, name)
 
   def step(self, action):
-    observ, reward, done, info = self._env.step(action)
+    if not self.actually_done:
+      observ, reward, done, info = self._env.step(action)
+      self.actually_done = done
     self._step += 1
-    if self._step < self._duration:
-      done = False
+    if self.actually_done:
+      observ = self.empty_observ
+      reward = self.empty_reward
+      info = self.empty_info
+      if self._step < self._duration:
+        done = self.empty_done
+      else:
+        done = True
     return observ, reward, done, info
 
   def reset(self):
     self._step = 0
+    self.actually_done = False
     return self._env.reset()
 
 

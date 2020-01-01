@@ -305,7 +305,7 @@ for name, game in ATARI_TASKS.items():
 PROCGEN_TASKS = ['coinrun', 'starpilot', 'caveflyer', 'dodgeball', 'fruitbot',
                  'chaser', 'miner', 'jumper', 'leaper', 'maze', 'bigfish',
                  'heist', 'climber', 'plunder', 'ninja', 'bossfight']
-PROCGEN_TASKS = {'procgen_{}'.format(game.lower()): game for game in PROCGEN_TASKS}
+PROCGEN_TASKS = {'procgen-{}'.format(game.lower()): game for game in PROCGEN_TASKS}
 
 
 for name, game in PROCGEN_TASKS.items():
