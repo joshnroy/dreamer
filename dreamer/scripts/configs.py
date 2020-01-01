@@ -46,6 +46,7 @@ DEFAULTS = dict(
         action_head=True,
         value_head=True,
         train_action_noise=0.3,
+        batch_shape=(2, 2),
     ),
     actor=dict(
         train_planner='policy_sample',
